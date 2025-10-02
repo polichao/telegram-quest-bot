@@ -11,39 +11,36 @@ API_TOKEN = os.getenv('BOT_TOKEN')
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Хранилище для пользователя: язык и маршрут
+# Хранилище для пользователя
 user_data = {}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-default_comments = {
-    "ru": ["Точно!", "Ты ошибся, но ничего страшного"],
-    "en": ["Yes!", "Sorry, but you didn't guess"],
-    "es": ["Exacto!", "Lo siento, está vez no adivinaste"]
-}
+default_comments = ["Точно!", "Ты ошибся, но ничего страшного"]
 
+
+# start command - DONE
 @dp.message_handler(commands=['start'])
 async def start_handler(message: types.Message):
     keyboard = types.InlineKeyboardMarkup(row_width=3)
     keyboard.add(
-        types.InlineKeyboardButton("Русский 🇷🇺", callback_data='lang_ru'),
-        types.InlineKeyboardButton("English 🇬🇧", callback_data='lang_en'),
-        types.InlineKeyboardButton("Español 🇪🇸", callback_data='lang_es')
+        types.InlineKeyboardButton("Как это работает", callback_data='bot_info'),
     )
     sent = await message.answer(
-        "Привет! Пожалуйста, выберите язык / Please choose your language / Por favor, elige tu idioma:",
+        "Привет, и с днем рождения!\n\
+        Пока границы закрыты, а поезда и самолеты до Турку не ходят, мы придумали, как всё же добраться до тебя в гости. Пусть и таким, немного волшебным, способом.\n\n\
+        Мы знаем, что ты наверняка уже изучила Турку вдоль и поперёк,  Поэтому мы не будем тебя учить, а просто предложим прогуляться по нашим следам. Интересно, удалось ли нам найти хоть один уголок, где ещё не ступала твоя нога?\n\n\
+        Считай, что этот квест — наш билет в Турку, а ты — наш проводник. Как если бы мы шли рядом, а ты показывала нам город и удивлялась вместе с нами: «О, а тут я никогда не была!»",
         reply_markup=keyboard
     )
 
 
-@dp.callback_query_handler(lambda c: c.data and c.data.startswith('lang_'))
-async def language_chosen(callback_query: types.CallbackQuery):
+#bot_info - DONE
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('bot_info'))
+async def show_info(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
-    lang = callback_query.data.split('_')[1]
 
-    user_data[user_id] = {'lang': lang}
     user_data[user_id]['checkpoint_index'] = 0
     user_data[user_id]['step_index'] = 0
-    user_data[user_id]['character_index'] = -1
 
     # Удаляем сообщение с кнопками выбора языка
     try:
@@ -53,39 +50,24 @@ async def language_chosen(callback_query: types.CallbackQuery):
 
     await bot.answer_callback_query(callback_query.id)
 
-    greetings = {
-        'ru': "Вы выбрали русский язык. Приветствуем на нашем свадебном квесте!\nВыберите маршрут:",
-        'en': "You chose English. Welcome to our wedding quest!\nPlease choose your route:",
-        'es': "Has elegido español. ¡Bienvenido a nuestra búsqueda de boda!\nPor favor, elige tu ruta:"
-    }
-    routes_buttons = {
-        'ru': ["Маршрут 1", "Маршрут 2"],
-        'en': ["Route 1", "Route 2"],
-        'es': ["Ruta 1", "Ruta 2"]
-    }
-
-    labels = routes_buttons.get(lang, routes_buttons['en'])
-    keyboard = types.InlineKeyboardMarkup(row_width=2)
+    info_text = "Выбирай любой удобный для себя день.\n\
+                На прогулку понадобится 3-4 часа.\n\n\
+                А еще можно взять нас с собой онлайн по зуму.\n\n\
+                И отправляйся на старт"
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(
-        types.InlineKeyboardButton(labels[0], callback_data='route_1'),
-        types.InlineKeyboardButton(labels[1], callback_data='route_2')
+        types.InlineKeyboardButton("Адрес старта", callback_data='start_address')
     )
 
-    await bot.send_message(user_id, greetings.get(lang, "Hello!\nChoose your route:"), reply_markup=keyboard)
+    await bot.send_message(user_id, info_text, reply_markup=keyboard)
 
 
-@dp.callback_query_handler(lambda c: c.data and c.data.startswith('route_'))
-async def route_chosen(callback_query: types.CallbackQuery):
+#start_route - DONE
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('start_address'))
+async def start_route(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
-    route = callback_query.data.split('_')[1]
 
-    # Добавляем маршрут к данным пользователя
-    if user_id in user_data:
-        user_data[user_id]['route'] = route
-    else:
-        user_data[user_id] = {'route': route}
-
-    # Удаляем сообщение с выбором маршрута
+    # Удаляем сообщение
     try:
         await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
     except Exception as e:
@@ -93,25 +75,20 @@ async def route_chosen(callback_query: types.CallbackQuery):
 
     await bot.answer_callback_query(callback_query.id)
 
-    messages = {
-        'ru': f"Отлично! Вы выбрали маршрут {route}. Начнем!",
-        'en': f"Great! You chose route {route}. Let's go!",
-        'es': f"¡Genial! Has elegido la ruta {route}. ¡Empezamos!"
-    }
+    #message = "Набережная реки Ауры, неподалеку от Морского музея (Linnankatu 72), Турку"
 
-    lang = user_data.get(user_id, {}).get('lang', 'en')
-    await bot.send_message(user_id, messages.get(lang, messages['en']))
+    #await bot.send_message(user_id, message)
     await show_checkpoint(user_id)
 
 
-# Функции обработки всех возможных шагов
+# Функции обработки всех возможных шагов - DONE
 # Отправка любого текста - title, intro, here_text, after_story_text,  next_btn_text
-async def send_message(step, user_id, lang, cp):
+async def send_message(step, user_id, cp):
     if step in cp:
-        await bot.send_message(user_id, cp[step][lang])
+        await bot.send_message(user_id, cp[step])
 
 
-# Отправка любой фотографии из папки img - story_img_path, question_img_path, here_img_path, local_question_img_path
+# DONE:Отправка любой фотографии из папки img - story_img_path, question_img_path, here_img_path, local_question_img_path
 async def send_img(img, cp, user_id):
     img_path = cp.get(img + "_img_path")
     if img_path:
@@ -119,122 +96,95 @@ async def send_img(img, cp, user_id):
         await bot.send_photo(user_id, photo=open(img_path, 'rb'))
 
 
-# Отправка стикера с персонажем - по списку
-async def send_character(cp, user_id):
-    characters = cp.get("characters")
-    user_data[user_id]["character_index"] += 1
-    i = user_data[user_id]["character_index"]
-    print("character", characters[i])
-    if characters and -1 < i < len(characters):
-        print(characters[i])
-        sticker_id = checkpoints.get_sticker_id(characters[i])
-        try:
-            await bot.send_sticker(chat_id=user_id, sticker=sticker_id)
-        except Exception as e:
-            print(f"[Ошибка] Не удалось отправить стикер {sticker_id}: {e}")
-
-
-# Отправка истории - audio_path + story_img_path + story_text
-async def send_story(user_id, lang, cp, route, index):
+# DONE:Отправка истории - story_img_path + story_text
+async def send_story(user_id, cp):
     if "story_text" in cp:
-        if "audio_path" in cp and cp["audio_path"].get(lang):
-            audio_path = os.path.join(BASE_DIR, "mp3", cp["audio_path"][lang])
-            await bot.send_audio(user_id, audio=open(audio_path, 'rb'))
+        if "story_img_path" in cp:
             await send_img("story", cp, user_id)
-            await asyncio.sleep(5)
-        elif "story_img_path" in cp:
-            await send_img("story", cp, user_id)
-        await bot.send_message(user_id, cp["story_text"][lang])
+        await bot.send_message(user_id, cp["story_text"])
         await asyncio.sleep(10)
 
 
-# Вопрос по истории или локации, local = "" / "local" - question + options + question_img_path
-async def send_question(user_id, lang, route, cp, index, local=""):
+# DONE:Вопрос по истории или локации, local = "" / "local" - question + options + question_img_path
+async def send_question(user_id, cp, index, local=""):
     q = "question"
     op = "options"
     if local:
         q = local + "_" + q
         op = local + "_" + op
     if q+"_intro" in cp:
-        await bot.send_message(user_id, cp[q+"_intro"][lang])
+        await bot.send_message(user_id, cp[q+"_intro"])
     if q in cp and op in cp:
         await asyncio.sleep(3)
         keyboard = types.InlineKeyboardMarkup()
 
-        for i, option in enumerate(cp[op][lang]):
+        for i, option in enumerate(cp[op]):
             try:
-                keyboard.add(types.InlineKeyboardButton(option, callback_data=f"answer_{route}_{index}_{i}_{local}"))
+                keyboard.add(types.InlineKeyboardButton(option, callback_data=f"answer_{index}_{i}_{local}"))
             except Exception as e:
                 print("Не удалось добавить кнопку", e)
         try:
             await send_img(q, cp, user_id)
-            await bot.send_message(user_id, cp[q][lang], reply_markup=keyboard)
+            await bot.send_message(user_id, cp[q], reply_markup=keyboard)
             return True
         except Exception as e:
             print("Не удалось отправить кнопки", e)
     elif q in cp:
-        print(q, cp[q][lang])
+        print(q, cp[q])
         try:
-            await bot.send_message(user_id, cp[q][lang])
+            await bot.send_message(user_id, cp[q])
             return False
         except Exception as e:
             print("error question without options", e)
 
 
-# Кнопка "Я здесь"
-async def send_here_btn(user_id, lang, route, index):
+# Кнопка "Я здесь" - DONE
+async def send_here_btn(user_id, index):
     keyboard = types.InlineKeyboardMarkup()
-    keyboard.add(types.InlineKeyboardButton({
-                                                'ru': "Я здесь",
-                                                'en': "I'm here",
-                                                'es': "Aquí estoy"
-                                            }[lang], callback_data=f"arrived_{route}_{index}"))
+    keyboard.add(types.InlineKeyboardButton("Я здесь",
+                                            callback_data=f"arrived_{index}"))
 
     await bot.send_message(user_id, "🔘", reply_markup=keyboard)
 
 
-# кнопка "пошли дальше"
-async def send_next_btn(user_id, lang, route, index):
+# DONE:кнопка "пошли дальше"
+async def send_next_btn(user_id, index):
     kb = types.InlineKeyboardMarkup()
-    kb.add(types.InlineKeyboardButton({
-        'ru': "Пошли дальше",
-        'en': "Let's go",
-        'es': "Sigamos"
-    }[lang], callback_data=f"next_{route}_{int(index) + 1}"))
+    kb.add(types.InlineKeyboardButton("Пошли дальше", callback_data=f"next_{int(index) + 1}"))
     await bot.send_message(user_id, "👉", reply_markup=kb)
 
 
-# Обработка последовательности шагов
-async def do_step(step, user_id, lang, route, cp, index):
+# DONE:Обработка последовательности шагов
+async def do_step(step, user_id, cp, index):
     # Задания и история
     if step == "question":
-        q = await send_question(user_id, lang, route, cp, index)
+        q = await send_question(user_id, cp, index)
         return q
     elif step == "local_question":
         try:
-            q = await send_question(user_id, lang, route, cp, index, "local")
+            q = await send_question(user_id, cp, index, "local")
             return q
         except Exception as e:
             print("do_step, local question", e)
     elif step == "story":
-        await send_story(user_id, lang, cp, route, index)
+        await send_story(user_id, cp)
 
     # Отправка любого текста - title, intro, here_text, after_story_text, question_intro, next_btn_text
     elif step in ['title', 'intro', 'here_text', 'after_story_text', 'next_btn_text']:
         try:
             if step == "here_text":
                 await asyncio.sleep(3)
-            await send_message(step, user_id, lang, cp)
+            await send_message(step, user_id, cp)
         except Exception as e:
             print(e)
 
     # Кнопки
     elif step == "here_btn":
-        await send_here_btn(user_id, lang, route, index)
+        await send_here_btn(user_id, index)
         return True
     elif step == "next_btn":
         try:
-            await send_next_btn(user_id, lang, route, index)
+            await send_next_btn(user_id, lang)
             return True
         except Exception as e:
             print(e)
@@ -245,30 +195,26 @@ async def do_step(step, user_id, lang, route, cp, index):
             await send_img("here", cp, user_id)
         except Exception as e:
             print("here img", e)
-    elif step == "character":
-        await send_character(cp, user_id)
     return False
 
 
-# Функция выбора кп
+# DONE:Функция выбора кп
 async def show_checkpoint(user_id):
     user = user_data[user_id]
-    route = user['route']
-    lang = user['lang']
     index = user.get('checkpoint_index', 0)
-    steps = checkpoints.get_steps_orden(route, int(index))
-    cp = check_points[route][index]
+    steps = checkpoints.get_steps_orden(int(index))
+    cp = check_points[index]
     stop = False
     print("show", index, steps)
     # Идем по шагам до первой остановки (загадка, задание или кнопка)
     for i in range(len(steps)):
         step = steps[i]
         user_data[user_id]['step_index'] = i
-        stop = await do_step(step, user_id, lang, route, cp, index)
+        stop = await do_step(step, user_id, cp, index)
         if stop:
             break
     if not stop:
-        await next_cp(user_id, lang, route, index+1)
+        await next_cp(user_id, index+1)
 
 
 # Переход к следующему КП
@@ -287,14 +233,13 @@ async def next_cp(user_id, lang, route, index):
         }[lang])
 
 
-# Обработчик Я ЗДЕСЬ
+# DONE:Обработчик Я ЗДЕСЬ
 @dp.callback_query_handler(lambda c: c.data.startswith("arrived_"))
 async def arrived_handler(callback_query: types.CallbackQuery):
-    _, route, index = callback_query.data.split("_")
+    _, index = callback_query.data.split("_")
     user_id = callback_query.from_user.id
-    lang = user_data[user_id]['lang']
-    steps = checkpoints.get_steps_orden(route, int(index))
-    cp = check_points[route][int(index)]
+    steps = checkpoints.get_steps_orden(int(index))
+    cp = check_points[int(index)]
 
     # Удаляем кнопку
     await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
@@ -306,25 +251,24 @@ async def arrived_handler(callback_query: types.CallbackQuery):
         for i in range(step_i, len(steps)):
             step = steps[i]
             user_data[user_id]['step_index'] = i
-            stop = await do_step(step, user_id, lang, route, cp, index)
+            stop = await do_step(step, user_id, cp, index)
             if stop:
                 break
     else:
         try:
-            await next_cp(user_id, lang, route, int(index)+1)
+            await next_cp(user_id, int(index)+1)
         except Exception as e:
             print(e)
 
 
-# Обработчик ответов
+# DONE:Обработчик ответов
 @dp.callback_query_handler(lambda c: c.data.startswith("answer_"))
 async def answer_handler(callback_query: types.CallbackQuery):
-    _, route, index, selected, local = callback_query.data.split("_")
+    _, index, selected, local = callback_query.data.split("_")
     index = int(index)
     user_id = callback_query.from_user.id
-    lang = user_data[user_id]['lang']
-    cp = check_points[route][index]
-    steps = checkpoints.get_steps_orden(route, int(index))
+    cp = check_points[index]
+    steps = checkpoints.get_steps_orden(int(index))
 
     #await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
     await bot.answer_callback_query(callback_query.id)
@@ -335,14 +279,14 @@ async def answer_handler(callback_query: types.CallbackQuery):
     if ans_number:
         try:
             if selected == ans_number:
-                await bot.send_message(user_id, default_comments[lang][0])
+                await bot.send_message(user_id, default_comments[0])
             else:
-                await bot.send_message(user_id, default_comments[lang][1])
+                await bot.send_message(user_id, default_comments[1])
         except Exception as e:
             print("ans_number", e)
     else:
         ans_comments = ans + "_comments"
-        comment = cp.get(ans_comments, {}).get(selected, {}).get(lang)
+        comment = cp.get(ans_comments, {}).get(selected, {})
         print("comment", comment)
         if comment:
             try:
@@ -356,25 +300,24 @@ async def answer_handler(callback_query: types.CallbackQuery):
         for i in range(step_i, len(steps)):
             step = steps[i]
             user_data[user_id]['step_index'] = i
-            stop = await do_step(step, user_id, lang, route, cp, index)
+            stop = await do_step(step, user_id, cp, index)
             if stop:
                 break
     else:
-        await next_cp(user_id, lang, route, int(index) + 1)
+        await next_cp(user_id, int(index) + 1)
 
 
-# Переход к следующему КП
+# DONE:Переход к следующему КП
 @dp.callback_query_handler(lambda c: c.data.startswith("next_"))
 async def next_checkpoint(callback_query: types.CallbackQuery):
-    _, route, index = callback_query.data.split("_")
+    _, index = callback_query.data.split("_")
     index = int(index)
     user_id = callback_query.from_user.id
-    lang = user_data[user_id]['lang']
 
     await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
     await bot.answer_callback_query(callback_query.id)
 
-    await next_cp(user_id, lang, route, index)
+    await next_cp(user_id, index)
 
 
 if __name__ == '__main__':
