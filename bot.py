@@ -21,39 +21,32 @@ default_comments = ["Точно!", "Ты ошибся, но ничего стр�
 # start command - DONE
 @dp.message_handler(commands=['start'])
 async def start_handler(message: types.Message):
-    keyboard = types.InlineKeyboardMarkup(row_width=3)
-    keyboard.add(
-        types.InlineKeyboardButton("Как это работает", callback_data='bot_info'),
-    )
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(types.InlineKeyboardButton("Как это работает", callback_data='bot_info'))
+    print("start_command")
     sent = await message.answer(
         "Привет, и с днем рождения!\n\
-        Пока границы закрыты, а поезда и самолеты до Турку не ходят, мы придумали, как всё же добраться до тебя в гости. Пусть и таким, немного волшебным, способом.\n\n\
-        Мы знаем, что ты наверняка уже изучила Турку вдоль и поперёк,  Поэтому мы не будем тебя учить, а просто предложим прогуляться по нашим следам. Интересно, удалось ли нам найти хоть один уголок, где ещё не ступала твоя нога?\n\n\
-        Считай, что этот квест — наш билет в Турку, а ты — наш проводник. Как если бы мы шли рядом, а ты показывала нам город и удивлялась вместе с нами: «О, а тут я никогда не была!»",
+Пока границы закрыты, а поезда и самолеты до Турку не ходят, мы придумали, как всё же добраться до тебя в гости. Пусть и таким, немного волшебным, способом.\n\n\
+Мы знаем, что ты наверняка уже изучила Турку вдоль и поперёк,  Поэтому мы не будем тебя учить, а просто предложим прогуляться по нашим следам. Интересно, удалось ли нам найти хоть один уголок, где ещё не ступала твоя нога?\n\n\
+Считай, что этот квест — наш билет в Турку, а ты — наш проводник. Как если бы мы шли рядом, а ты показывала нам город и удивлялась вместе с нами: «О, а тут я никогда не была!»",
         reply_markup=keyboard
     )
 
 
 #bot_info - DONE
-@dp.callback_query_handler(lambda c: c.data and c.data.startswith('bot_info'))
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('bot_'))
 async def show_info(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
-
-    user_data[user_id]['checkpoint_index'] = 0
-    user_data[user_id]['step_index'] = 0
-
-    # Удаляем сообщение с кнопками выбора языка
-    try:
-        await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
-    except Exception as e:
-        print(f"Не удалось удалить сообщение: {e}")
+    print("show info function ----", user_data)
+    user_data[user_id] = {'checkpoint_index': 0, 'step_index': 0}
+    print(user_data)
+    # Удаляем сообщение
 
     await bot.answer_callback_query(callback_query.id)
 
-    info_text = "Выбирай любой удобный для себя день.\n\
-                На прогулку понадобится 3-4 часа.\n\n\
-                А еще можно взять нас с собой онлайн по зуму.\n\n\
-                И отправляйся на старт"
+    info_text = "Выбирай любой удобный для себя день.\nНа прогулку понадобится 3-4 часа.\n\n\
+А еще можно взять нас с собой онлайн по зуму.\n\n\
+И отправляйся на старт"
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(
         types.InlineKeyboardButton("Адрес старта", callback_data='start_address')
@@ -68,16 +61,10 @@ async def start_route(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
     # Удаляем сообщение
-    try:
-        await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
-    except Exception as e:
-        print(f"Не удалось удалить сообщение: {e}")
+
 
     await bot.answer_callback_query(callback_query.id)
 
-    #message = "Набережная реки Ауры, неподалеку от Морского музея (Linnankatu 72), Турку"
-
-    #await bot.send_message(user_id, message)
     await show_checkpoint(user_id)
 
 
@@ -217,20 +204,15 @@ async def show_checkpoint(user_id):
         await next_cp(user_id, index+1)
 
 
-# Переход к следующему КП
-async def next_cp(user_id, lang, route, index):
-    print("next", index)
-    if index < len(check_points[route]):
+# DONE:Переход к следующему КП
+async def next_cp(user_id, index):
+    print("next", index, len(check_points), check_points)
+    if index < len(check_points):
         user_data[user_id]['checkpoint_index'] = index
-        user_data[user_id]['character_index'] = -1
         user_data[user_id]['step_index'] = 0
         await show_checkpoint(user_id)
     else:
-        await bot.send_message(user_id, {
-            'ru': "🎉 Квест завершён! Спасибо, что прошли его с нами!",
-            'en': "🎉 Quest complete! Thank you for joining us!",
-            'es': "🎉 ¡Búsqueda completada! ¡Gracias por participar!"
-        }[lang])
+        await bot.send_message(user_id, "🎉 Квест завершён! Спасибо, что прошли его с нами!")
 
 
 # DONE:Обработчик Я ЗДЕСЬ
