@@ -232,7 +232,7 @@ steps_orden = [  # Маршрут 1
         ["intro", "question", "next_btn"], # КП 8
         ["here_text", "here_btn", "story", "next_btn"], # КП 9
         ["here_img_path", "local_question", "story", "next_btn"], # КП 10
-        ["local_question", "here_btn", "story", "next_btn"], # КП 11
+        ["local_question", "here_btn", "here_img_path", "story", "next_btn"], # КП 11
         ["here_text", "here_img_path", "next_btn"],  # КП 12
         ["here_text", "here_btn", "story", "next_btn"],  # КП 13
         ["here_text", "here_btn", "story", "next_btn"],  # КП 14
