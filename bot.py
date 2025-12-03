@@ -3,18 +3,37 @@ from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, executor, types
 import checkpoints
 import asyncio
+import json
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATE_FILE = os.path.join(BASE_DIR, "data", "user_states.json")
+
+
+def load_user_states():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return {int(k): v for k, v in data.items()}
+    return {}
+
+
+def save_user_states(user_data):
+    with open(STATE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(user_data, f, ensure_ascii=False, indent=2)
+    print(f"Saved user states for {len(user_data)} users")
+
+
+# Загружаем сохраненные состояния
+user_data = load_user_states()
+print(f"Loaded user states for {len(user_data)} users")
 
 check_points = checkpoints.get_points_data()
 load_dotenv()
 API_TOKEN = os.getenv('BOT_TOKEN')
-#print(len(check_points))
+
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Хранилище для пользователя
-user_data = {}
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 default_comments = ["Точно!", "Ты ошибся, но ничего страшного"]
 
 
@@ -23,7 +42,6 @@ default_comments = ["Точно!", "Ты ошибся, но ничего стр�
 async def start_handler(message: types.Message):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(types.InlineKeyboardButton("Как это работает", callback_data='bot_info'))
-    #print("start_command")
     sent = await message.answer(
         "Привет, и с днем рождения!\n\
 Пока границы закрыты, а поезда и самолеты до Турку не ходят, мы придумали, как всё же добраться до тебя в гости. Пусть и таким, немного волшебным, способом.\n\n\
@@ -37,11 +55,9 @@ async def start_handler(message: types.Message):
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('bot_'))
 async def show_info(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
-    #print("show info function ----", user_data)
     user_data[user_id] = {'checkpoint_index': 0, 'step_index': 0}
-    #print(user_data)
+    save_user_states(user_data)
     # Удаляем сообщение
-
     await bot.answer_callback_query(callback_query.id)
 
     info_text = "Выбирай любой удобный для себя день.\nНа прогулку понадобится 3-4 часа.\n\n\
@@ -207,6 +223,7 @@ async def show_checkpoint(user_id):
     for i in range(len(steps)):
         step = steps[i]
         user_data[user_id]['step_index'] = i
+        save_user_states(user_data)  # СОХРАНЯЕМ после изменения шага!
         stop = await do_step(step, user_id, cp, index)
         print(step,i,index,stop)
         if stop:
@@ -221,6 +238,7 @@ async def next_cp(user_id, index):
     if index < len(check_points):
         user_data[user_id]['checkpoint_index'] = index
         user_data[user_id]['step_index'] = 0
+        save_user_states(user_data)  # СОХРАНЯЕМ!
         await show_checkpoint(user_id)
     else:
         await bot.send_message(user_id, "🎉 Квест завершён! Спасибо, что прошла его с нами! Приятного чаепития!")
@@ -245,6 +263,7 @@ async def arrived_handler(callback_query: types.CallbackQuery):
         for i in range(step_i, len(steps)):
             step = steps[i]
             user_data[user_id]['step_index'] = i
+            save_user_states(user_data)  # СОХРАНЯЕМ!
             stop = await do_step(step, user_id, cp, index)
             print(stop, step)
             if stop:
@@ -410,6 +429,7 @@ async def answer_handler(callback_query: types.CallbackQuery):
         for i in range(step_i, len(steps)):
             step = steps[i]
             user_data[user_id]['step_index'] = i
+            save_user_states(user_data)  # СОХРАНЯЕМ!
             stop = await do_step(step, user_id, cp, index)
             if stop:
                 break
